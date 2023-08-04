@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -80,6 +81,33 @@ func TestDeleteCarById(t *testing.T) {
 
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, "DELETE to /car/:id", body)
+}
+
+func TestCarValidation(t *testing.T) {
+	var c = Car{
+		Make:      "BMW",
+		Model:     "3 Series",
+		BuildDate: time.Now(),
+		ColourID:  2,
+	}
+
+	err := carValidation(c)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestFailedCarValidation(t *testing.T) {
+
+	// Deliberately missing a required field to force a validation error
+	var c = Car{
+		Make:      "BMW",
+		BuildDate: time.Now(),
+		ColourID:  2,
+	}
+
+	err := carValidation(c)
+	assert.NotNil(t, err)
 }
 
 func respBodyToString(r io.ReadCloser) string {
