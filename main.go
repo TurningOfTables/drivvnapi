@@ -34,22 +34,26 @@ type Colour struct {
 }
 
 var validate *validator.Validate
-var resetDbFlag = flag.Bool("r", false, "set to reset database on app start")
+var clearDbFlag = flag.Bool("c", false, "clear database data on app start; overrides -r flag")
+var resetDbFlag = flag.Bool("r", false, "reset database to default data on app start; is overridden by -c flag")
 
 func main() {
 	flag.Parse()
-	if *resetDbFlag {
+
+	if *clearDbFlag {
+		ClearDbData()
+	} else if *resetDbFlag {
 		ResetDB()
 	}
+
 	app := initApp() // splitting the app initialisation and listening out allows us to use app.Test for testing
 	app.Listen(IP + ":" + port)
 }
 
 func initApp() *fiber.App {
-	db, err := sql.Open("sqlite3", dbFile)
+	db, err := ConnectToDb()
 	if err != nil {
-		fmt.Println(err)
-		log.Fatalf("Failed to connect to database: %v", dbFile)
+		log.Fatal("Failed to connect to database")
 	}
 
 	app := fiber.New()
@@ -99,6 +103,10 @@ func getCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 			return c.Status(fiber.StatusInternalServerError).JSON("Error retrieving cars")
 		}
 		cars = append(cars, car)
+	}
+
+	if len(cars) == 0 {
+		return c.Status(fiber.StatusNotFound).JSON("No cars found")
 	}
 
 	return c.JSON(cars)
@@ -154,6 +162,11 @@ func getCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 	var car Car
 	row := db.QueryRow("SELECT * from cars WHERE id = ?", id)
 	row.Scan(&car.ID, &car.Make, &car.Model, &car.BuildDate, &car.ColourID)
+
+	if car.ID == 0 {
+		return c.Status(fiber.StatusNotFound).JSON("Car not found with that id")
+	}
+
 	return c.JSON(car)
 }
 
@@ -164,15 +177,19 @@ func deleteCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 		return c.Status(fiber.StatusBadRequest).JSON("Parameter 'id' cannot be empty")
 	}
 
-	_, err := db.Exec("DELETE from cars WHERE id = ?", id)
+	res, err := db.Exec("DELETE from cars WHERE id = ?", id)
 	if err != nil {
 		log.Warn(err)
 		return c.Status(fiber.StatusInternalServerError).JSON("Error deleting vehicle")
 	}
+
+	if recordsDeleted, _ := res.RowsAffected(); recordsDeleted < 1 {
+		return c.Status(fiber.StatusNotFound).JSON("Vehicle not found with that id")
+	}
 	return c.Status(fiber.StatusOK).JSON("Vehicle deleted successfully")
 }
 
-// Validation functions - can be combined later to take an interface{} as they're both very similar
+// Validation functions - can potentially combined later to reduce repetition
 func carValidation(c Car) error {
 	validate = validator.New()
 	err := validate.Struct(c)

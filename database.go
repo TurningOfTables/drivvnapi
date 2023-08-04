@@ -9,13 +9,12 @@ import (
 
 // Quick and dirty utility function to reset the DB. Better version would be to read from a schema file.
 func ResetDB() {
-	db, err := sql.Open("sqlite3", dbFile)
+	db, err := ConnectToDb()
 	if err != nil {
-		fmt.Println(err)
-		log.Fatalf("Failed to connect to database: %v", dbFile)
+		log.Fatal("Failed to connect to database")
 	}
 
-	_, err = db.Exec(`DROP TABLE IF EXISTS "cars";
+	db.Exec(`DROP TABLE IF EXISTS "cars";
 	CREATE TABLE IF NOT EXISTS "cars" (
 		"id"	INTEGER NOT NULL UNIQUE,
 		"make"	TEXT NOT NULL,
@@ -36,8 +35,24 @@ func ResetDB() {
 	INSERT INTO "colours" VALUES (3,'white');
 	INSERT INTO "colours" VALUES (4,'black');
 	COMMIT;`)
-	if err != nil {
-		fmt.Println("Error resetting database")
-	}
 	fmt.Println("Database reset successfully")
+}
+
+func ConnectToDb() (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return db, err
+	}
+
+	return db, nil
+}
+
+func ClearDbData() {
+	db, err := ConnectToDb()
+	if err != nil {
+		log.Fatal("Failed to connect to database")
+	}
+
+	db.Exec(`DELETE from cars;DELETE from colours;`)
+	fmt.Println("Database emptied successfully")
 }

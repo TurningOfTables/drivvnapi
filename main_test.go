@@ -3,12 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/gofiber/fiber/v2/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -108,17 +108,59 @@ func TestFailedCarValidation(t *testing.T) {
 }
 
 func TestBuildDateValidation(t *testing.T) {
-	err := buildDateValidation("2020-01-20")
-	assert.Nil(t, err)
+
+	var tests = []struct {
+		Date          string
+		ErrorExpected bool
+	}{
+		{
+			Date:          time.Now().Format(time.DateOnly),
+			ErrorExpected: false,
+		},
+		{
+			Date:          "1999-01-20",
+			ErrorExpected: true,
+		},
+	}
+
+	for _, test := range tests {
+		err := buildDateValidation(test.Date)
+		if test.ErrorExpected {
+			assert.NotNil(t, err)
+		} else {
+			assert.Nil(t, err)
+		}
+	}
 }
 
-func TestBuildDateValidationTooOld(t *testing.T) {
-	err := buildDateValidation("2018-01-20")
-	assert.NotNil(t, err)
-}
+func TestColourValidation(t *testing.T) {
+	ResetDB()
+	db, err := ConnectToDb()
+	if err != nil {
+		log.Fatal("Failed to connect to database")
+	}
 
-func respBodyToString(r io.ReadCloser) string {
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r)
-	return buf.String()
+	var tests = []struct {
+		TestCar       Car
+		ErrorExpected bool
+	}{
+		{
+			TestCar:       Car{ColourID: 1},
+			ErrorExpected: false,
+		},
+		{
+			TestCar:       Car{ColourID: 9999},
+			ErrorExpected: true,
+		},
+	}
+
+	for _, test := range tests {
+		err := colourValidation(test.TestCar, db)
+		if test.ErrorExpected {
+			assert.NotNil(t, err)
+		} else {
+			assert.Nil(t, err)
+		}
+	}
+
 }
