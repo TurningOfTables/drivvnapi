@@ -2,7 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"errors"
+	"flag"
 	"fmt"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -14,6 +17,8 @@ import (
 const dbFile = "./data/cardata.db"
 const IP = "localhost"
 const port = "8000"
+const dateFormat = time.DateOnly
+const buildDateMaxYears = 4
 
 type Car struct {
 	ID        int
@@ -29,8 +34,13 @@ type Colour struct {
 }
 
 var validate *validator.Validate
+var resetDbFlag = flag.Bool("r", false, "set to reset database on app start")
 
 func main() {
+	flag.Parse()
+	if *resetDbFlag {
+		ResetDB()
+	}
 	app := initApp() // splitting the app initialisation and listening out allows us to use app.Test for testing
 	app.Listen(IP + ":" + port)
 }
@@ -109,6 +119,18 @@ func postCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 			errorString := fmt.Sprintf("%v", err)
 			return c.Status(fiber.StatusBadRequest).JSON(errorString)
 		}
+
+		if err := colourValidation(car, db); err != nil {
+			log.Warn(err)
+			errorString := fmt.Sprintf("%v", err)
+			return c.Status(fiber.StatusBadRequest).JSON(errorString)
+		}
+
+		if err := buildDateValidation(car.BuildDate); err != nil {
+			log.Warn(err)
+			errorString := fmt.Sprintf("%v", err)
+			return c.Status(fiber.StatusBadRequest).JSON(errorString)
+		}
 	}
 
 	for _, car := range cars {
@@ -160,11 +182,31 @@ func carValidation(c Car) error {
 	return nil
 }
 
-func colourValidation(c Colour) error {
-	validate = validator.New()
-	err := validate.Struct(c)
+func colourValidation(c Car, db *sql.DB) error {
+	var colour Colour
+
+	row := db.QueryRow("SELECT * FROM colours WHERE id = ?", c.ColourID)
+	if err := row.Scan(&colour.ID, &colour.Name); err != nil {
+		return errors.New("Colour validation failed - check ColourID exists")
+	}
+
+	return nil
+}
+
+func buildDateValidation(d string) error {
+	formatString := dateFormat
+
+	// convert string to date
+	date, err := time.Parse(formatString, d)
 	if err != nil {
 		return err
+	}
+
+	buildAge := time.Since(date).Hours() / 24 / 365 // Not perfect to calculate calendar years
+
+	if buildAge > buildDateMaxYears {
+		errorString := fmt.Sprintf("Vehicle build date (%v) is older than the maximum allowed (%v years)", date, buildDateMaxYears)
+		return errors.New(errorString)
 	}
 	return nil
 }
