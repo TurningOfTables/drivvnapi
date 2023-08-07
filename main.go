@@ -26,6 +26,14 @@ type Car struct {
 	Make      string `validate:"required"`
 	Model     string `validate:"required"`
 	BuildDate string `validate:"required"`
+	Colour    Colour `validate:"required"`
+}
+
+type CarAdd struct {
+	ID        int
+	Make      string `validate:"required"`
+	Model     string `validate:"required"`
+	BuildDate string `validate:"required"`
 	ColourID  int    `validate:"required"`
 }
 
@@ -99,7 +107,7 @@ func indexHandler(c *fiber.Ctx, db *sql.DB) error {
 func getCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 	var cars []Car
 
-	rows, err := db.Query("SELECT * from cars")
+	rows, err := db.Query("SELECT Car.id, Car.make, Car.model, Car.builddate, Colour.id, Colour.name FROM cars Car JOIN colours Colour ON Car.Colourid = Colour.id")
 	if err != nil {
 		log.Warn(err)
 		return c.Status(fiber.StatusInternalServerError).JSON("Error retrieving cars")
@@ -108,7 +116,7 @@ func getCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 
 	for rows.Next() {
 		var car Car
-		err := rows.Scan(&car.ID, &car.Make, &car.Model, &car.BuildDate, &car.ColourID)
+		err := rows.Scan(&car.ID, &car.Make, &car.Model, &car.BuildDate, &car.Colour.ID, &car.Colour.Name)
 		if err != nil {
 			log.Warn(err)
 			return c.Status(fiber.StatusInternalServerError).JSON("Error retrieving cars")
@@ -125,7 +133,7 @@ func getCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 
 // POST /cars
 func postCarsHandler(c *fiber.Ctx, db *sql.DB) error {
-	var cars []Car
+	var cars []CarAdd
 
 	if err := c.BodyParser(&cars); err != nil {
 		log.Warn(err)
@@ -173,8 +181,8 @@ func getCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 	}
 
 	var car Car
-	row := db.QueryRow("SELECT * from cars WHERE id = ?", id)
-	row.Scan(&car.ID, &car.Make, &car.Model, &car.BuildDate, &car.ColourID)
+	row := db.QueryRow("SELECT Car.id, Car.make, Car.model, Car.builddate, Colour.id, Colour.name FROM cars Car JOIN colours Colour ON Car.Colourid = Colour.id WHERE Car.id = ?", id)
+	row.Scan(&car.ID, &car.Make, &car.Model, &car.BuildDate, &car.Colour.ID, &car.Colour.Name)
 
 	if car.ID == 0 {
 		return c.Status(fiber.StatusNotFound).JSON("Car not found with that id")
@@ -203,11 +211,11 @@ func deleteCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 	return c.Status(fiber.StatusOK).JSON("Vehicle deleted successfully")
 }
 
-// carValidation takes a Car struct and uses https://github.com/go-playground/validator to validate that fields are
+// carValidation takes any interface and uses https://github.com/go-playground/validator to validate that fields are
 // populated as required using the struct's tags. If validation fails it returns an error, otherwise it returns nil.
-func carValidation(c Car) error {
+func carValidation(a interface{}) error {
 	validate = validator.New()
-	err := validate.Struct(c)
+	err := validate.Struct(a)
 	if err != nil {
 		return err
 	}
@@ -217,7 +225,7 @@ func carValidation(c Car) error {
 // colourValidation takes a Car struct and the current db connection
 // It queries the DB for the given colour ID
 // If no rows are returned by the query it returns an error, and otherwise returns nil
-func colourValidation(c Car, db *sql.DB) error {
+func colourValidation(c CarAdd, db *sql.DB) error {
 	var colour Colour
 
 	row := db.QueryRow("SELECT * FROM colours WHERE id = ?", c.ColourID)

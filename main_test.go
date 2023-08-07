@@ -43,7 +43,7 @@ func TestGetCars(t *testing.T) {
 // Test POST to "/cars"
 func TestPostCars(t *testing.T) {
 	ResetDB(testDbPath)
-	postBody := []Car{{Make: "TestMake", Model: "TestModel", BuildDate: time.Now().Format(time.DateOnly), ColourID: 1}}
+	postBody := []CarAdd{{Make: "TestMake", Model: "TestModel", BuildDate: time.Now().Format(time.DateOnly), ColourID: 1}}
 	json, err := json.Marshal(postBody)
 	if err != nil {
 		t.Error("Error encoding JSON body")
@@ -92,7 +92,7 @@ func TestDeleteCarById(t *testing.T) {
 
 func TestCarValidation(t *testing.T) {
 	ResetDB(testDbPath)
-	var c = Car{
+	var c = CarAdd{
 		Make:      "BMW",
 		Model:     "3 Series",
 		BuildDate: "2020-01-20",
@@ -109,7 +109,7 @@ func TestCarValidation(t *testing.T) {
 func TestFailedCarValidation(t *testing.T) {
 
 	// Deliberately missing a required field to force a validation error
-	var c = Car{
+	var c = CarAdd{
 		Make:      "BMW",
 		BuildDate: "2020-01-20",
 		ColourID:  2,
@@ -153,15 +153,15 @@ func TestColourValidation(t *testing.T) {
 	}
 
 	var tests = []struct {
-		TestCar       Car
+		TestCar       CarAdd
 		ErrorExpected bool
 	}{
 		{
-			TestCar:       Car{ColourID: 1},
+			TestCar:       CarAdd{ColourID: 1},
 			ErrorExpected: false,
 		},
 		{
-			TestCar:       Car{ColourID: 9999},
+			TestCar:       CarAdd{ColourID: 9999},
 			ErrorExpected: true,
 		},
 	}
