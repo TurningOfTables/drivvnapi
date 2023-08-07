@@ -12,11 +12,13 @@ Data is stored in `./data/cardata.db` and `./data/cardata_test.db`, the latter i
 
 Built binaries are in /bin for Windows, Mac and Linux, just run to start the API - defaults to `localhost:8000`
 
-You can build from source with `go build`. I've also included a basic shell script which builds for Windows, Mac and Linux all at once - see `./build_all.sh`
+You can build from source with `go build`. I've also included a basic shell script which builds for Windows, Mac and Linux all at once - see `./build_all.sh`. This will place binaries into `/bin` which can be executed, e.g `./bin/drivvnapi_windows_amd64.exe`
 
 If you provide the `-r` flag the database will be reset to contain one car and the standard four colours at startup.
 
 If you provide the `-c` flag the database will be reset to contain no car or colour information at startup.
+
+The above information is also available with `-help`
 
 ## Usage
 
