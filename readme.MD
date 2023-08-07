@@ -4,7 +4,7 @@
 
 Basic API set up to the specs of https://github.com/drivvn/backend-task - I probably took a bit longer than the time given, perhaps 5 hours in total but I was enjoying the task :)
 
-Written in Go using the (Go Fiber Framework)[https://gofiber.io/], and using an SQLite database.
+Written in Go using the [Go Fiber Framework](https://gofiber.io/), and using an SQLite database.
 
 Data is stored in `./data/cardata.db` and `./data/cardata_test.db`, the latter is identically set up, and used for testing.
 
