@@ -14,7 +14,8 @@ import (
 
 // Test GET to "/"
 func TestIndex(t *testing.T) {
-	app := initApp()
+	ResetDB(testDbPath)
+	app := initApp(true)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -22,11 +23,13 @@ func TestIndex(t *testing.T) {
 	}
 
 	assert.Equal(t, 200, resp.StatusCode)
+	ResetDB(testDbPath)
 }
 
 // Test GET to "/cars"
 func TestGetCars(t *testing.T) {
-	app := initApp()
+	ResetDB(testDbPath)
+	app := initApp(true)
 	req := httptest.NewRequest(http.MethodGet, "/cars", nil)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -34,10 +37,12 @@ func TestGetCars(t *testing.T) {
 	}
 
 	assert.Equal(t, 200, resp.StatusCode)
+	ResetDB(testDbPath)
 }
 
 // Test POST to "/cars"
 func TestPostCars(t *testing.T) {
+	ResetDB(testDbPath)
 	postBody := []Car{{Make: "TestMake", Model: "TestModel", BuildDate: time.Now().Format(time.DateOnly), ColourID: 1}}
 	json, err := json.Marshal(postBody)
 	if err != nil {
@@ -45,7 +50,7 @@ func TestPostCars(t *testing.T) {
 	}
 	reader := bytes.NewReader(json)
 
-	app := initApp()
+	app := initApp(true)
 	req := httptest.NewRequest(http.MethodPost, "/cars", reader)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req)
@@ -54,11 +59,13 @@ func TestPostCars(t *testing.T) {
 	}
 
 	assert.Equal(t, 201, resp.StatusCode)
+	ResetDB(testDbPath)
 }
 
 // Test GET to "/car/:id"
 func TestGetCarById(t *testing.T) {
-	app := initApp()
+	ResetDB(testDbPath)
+	app := initApp(true)
 	req := httptest.NewRequest(http.MethodGet, "/car/1", nil)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -66,11 +73,13 @@ func TestGetCarById(t *testing.T) {
 	}
 
 	assert.Equal(t, 200, resp.StatusCode)
+	ResetDB(testDbPath)
 }
 
 // Test DELETE to "/car/:id"
 func TestDeleteCarById(t *testing.T) {
-	app := initApp()
+	ResetDB(testDbPath)
+	app := initApp(true)
 	req := httptest.NewRequest(http.MethodDelete, "/car/1", nil)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -78,9 +87,11 @@ func TestDeleteCarById(t *testing.T) {
 	}
 
 	assert.Equal(t, 200, resp.StatusCode)
+	ResetDB(testDbPath)
 }
 
 func TestCarValidation(t *testing.T) {
+	ResetDB(testDbPath)
 	var c = Car{
 		Make:      "BMW",
 		Model:     "3 Series",
@@ -92,6 +103,7 @@ func TestCarValidation(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	ResetDB(testDbPath)
 }
 
 func TestFailedCarValidation(t *testing.T) {
@@ -134,8 +146,8 @@ func TestBuildDateValidation(t *testing.T) {
 }
 
 func TestColourValidation(t *testing.T) {
-	ResetDB()
-	db, err := ConnectToDb()
+	ResetDB(testDbPath)
+	db, err := ConnectToDb(testDbPath)
 	if err != nil {
 		log.Fatal("Failed to connect to database")
 	}
@@ -163,4 +175,5 @@ func TestColourValidation(t *testing.T) {
 		}
 	}
 
+	ResetDB(testDbPath)
 }

@@ -14,7 +14,8 @@ import (
 )
 
 // Configuration
-const dbFile = "./data/cardata.db"
+const prodDbPath = "./data/cardata.db"
+const testDbPath = "./data/cardata_test.db"
 const IP = "localhost"
 const port = "8000"
 const dateFormat = time.DateOnly
@@ -40,20 +41,29 @@ var resetDbFlag = flag.Bool("r", false, "reset database to default data on app s
 func main() {
 	flag.Parse()
 
-	if *clearDbFlag {
-		ClearDbData()
-	} else if *resetDbFlag {
-		ResetDB()
-	}
-
-	app := initApp() // splitting the app initialisation and listening out allows us to use app.Test for testing
+	app := initApp(false) // splitting the app initialisation and listening out allows us to use app.Test for testing
 	app.Listen(IP + ":" + port)
 }
 
-func initApp() *fiber.App {
-	db, err := ConnectToDb()
+func initApp(testing bool) *fiber.App {
+	var dbPath string
+	if testing {
+		log.Info("Testing mode enabled")
+		dbPath = testDbPath
+	} else {
+		log.Info("Production mode enabled")
+		dbPath = prodDbPath
+	}
+
+	if *clearDbFlag {
+		ClearDbData(dbPath)
+	} else if *resetDbFlag {
+		ResetDB(dbPath)
+	}
+
+	db, err := ConnectToDb(dbPath)
 	if err != nil {
-		log.Fatal("Failed to connect to database")
+		log.Fatalf("Failed to connect to database at %v", dbPath)
 	}
 
 	app := fiber.New()
@@ -82,9 +92,10 @@ func initApp() *fiber.App {
 }
 
 func indexHandler(c *fiber.Ctx, db *sql.DB) error {
-	return c.SendString("Hello")
+	return c.SendFile("readme.MD")
 }
 
+// GET /cars
 func getCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 	var cars []Car
 
@@ -112,6 +123,7 @@ func getCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 	return c.JSON(cars)
 }
 
+// POST /cars
 func postCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 	var cars []Car
 
@@ -152,6 +164,7 @@ func postCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 	return c.SendStatus(fiber.StatusCreated)
 }
 
+// GET /car/:id
 func getCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 	id := c.Params("id")
 	if id == "" {
@@ -170,6 +183,7 @@ func getCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 	return c.JSON(car)
 }
 
+// DELETE /car/:id
 func deleteCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 	id := c.Params("id")
 	if id == "" {
@@ -189,7 +203,8 @@ func deleteCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 	return c.Status(fiber.StatusOK).JSON("Vehicle deleted successfully")
 }
 
-// Validation functions - can potentially combined later to reduce repetition
+// carValidation takes a Car struct and uses https://github.com/go-playground/validator to validate that fields are
+// populated as required using the struct's tags. If validation fails it returns an error, otherwise it returns nil.
 func carValidation(c Car) error {
 	validate = validator.New()
 	err := validate.Struct(c)
@@ -199,6 +214,9 @@ func carValidation(c Car) error {
 	return nil
 }
 
+// colourValidation takes a Car struct and the current db connection
+// It queries the DB for the given colour ID
+// If no rows are returned by the query it returns an error, and otherwise returns nil
 func colourValidation(c Car, db *sql.DB) error {
 	var colour Colour
 
@@ -210,6 +228,9 @@ func colourValidation(c Car, db *sql.DB) error {
 	return nil
 }
 
+// buildDateValidation takes a date string (in our chosen format of time.DateOnly), converts it to a time.Time
+// It checks if it is more than the maximum allowed age (set by buildDateMaxYears)
+// Returns an error if it is, and otherwise returns nil
 func buildDateValidation(d string) error {
 	formatString := dateFormat
 
