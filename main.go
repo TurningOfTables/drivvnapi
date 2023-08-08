@@ -10,13 +10,15 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
+	"github.com/gofiber/fiber/v2/middleware/cache"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 // Configuration
-const prodDbPath = "./data/cardata.db"
-const testDbPath = "./data/cardata_test.db"
-const IP = "localhost"
+const prodDbPath = "file:./data/cardata.db?cache=shared"
+const testDbPath = "file:./data/cardata_test.db?cache=shared"
+const IP = "0.0.0.0"
 const port = "8000"
 const dateFormat = time.DateOnly
 const buildDateMaxYears = 4
@@ -45,6 +47,8 @@ type Colour struct {
 var validate *validator.Validate
 var clearDbFlag = flag.Bool("c", false, "clear database data on app start; overrides -r flag")
 var resetDbFlag = flag.Bool("r", false, "reset database to default data on app start; is overridden by -c flag")
+var useMetricsFlag = flag.Bool("m", false, "enable Fiber's metrics middleware")
+var useCacheFlag = flag.Bool("cache", false, "enable Fiber's caching middleware")
 
 func main() {
 	flag.Parse()
@@ -74,11 +78,29 @@ func initApp(testing bool) *fiber.App {
 		log.Fatalf("Failed to connect to database at %v", dbPath)
 	}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		AppName:           "Drivvn API",
+		EnablePrintRoutes: true,
+		IdleTimeout:       2 * time.Minute,
+	})
+
+	if *useCacheFlag {
+		log.Info("Enabled caching")
+		app.Use(cache.New())
+	} else {
+		log.Info("Disabled caching")
+	}
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return indexHandler(c, db)
 	})
+
+	if *useMetricsFlag {
+		log.Info("Enabled metrics")
+		app.Get("/metrics", monitor.New())
+	} else {
+		log.Info("Disabled metrics")
+	}
 
 	app.Get("/cars", func(c *fiber.Ctx) error {
 		return getCarsHandler(c, db)
@@ -99,12 +121,18 @@ func initApp(testing bool) *fiber.App {
 	return app
 }
 
+func logRequest(c *fiber.Ctx) {
+	log.Infof("%v - %v ", c.Method(), c.Path())
+}
+
 func indexHandler(c *fiber.Ctx, db *sql.DB) error {
+	logRequest(c)
 	return c.SendFile("readme.MD")
 }
 
 // GET /cars
 func getCarsHandler(c *fiber.Ctx, db *sql.DB) error {
+	logRequest(c)
 	var cars []Car
 
 	rows, err := db.Query("SELECT Car.id, Car.make, Car.model, Car.builddate, Colour.id, Colour.name FROM cars Car JOIN colours Colour ON Car.Colourid = Colour.id")
@@ -133,6 +161,7 @@ func getCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 
 // POST /cars
 func postCarsHandler(c *fiber.Ctx, db *sql.DB) error {
+	logRequest(c)
 	var cars []CarAdd
 
 	if err := c.BodyParser(&cars); err != nil {
@@ -174,6 +203,7 @@ func postCarsHandler(c *fiber.Ctx, db *sql.DB) error {
 
 // GET /car/:id
 func getCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
+	logRequest(c)
 	id := c.Params("id")
 	if id == "" {
 		log.Warn("Missing param id on /car/:id")
@@ -193,6 +223,7 @@ func getCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
 
 // DELETE /car/:id
 func deleteCarByIdHandler(c *fiber.Ctx, db *sql.DB) error {
+	logRequest(c)
 	id := c.Params("id")
 	if id == "" {
 		log.Warn("Missing param id on /car/:id")
