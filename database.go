@@ -39,6 +39,7 @@ func ResetDB(dbPath string) {
 
 func ConnectToDb(dbPath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbPath)
+	db.SetMaxOpenConns(1)
 	if err != nil {
 		return db, err
 	}
